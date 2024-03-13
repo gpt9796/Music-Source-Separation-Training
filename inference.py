@@ -49,7 +49,12 @@ def run_folder(model, args, config, device, verbose=False):
         else:
             res = demix_track(config, model, mixture, device)
         for instr in instruments:
-            sf.write("{}/{}_{}.wav".format(args.store_dir, os.path.basename(path)[:-4], instr), res[instr].T, sr, subtype='FLOAT')
+            wav_file = "{}/{}_{}.wav".format(args.store_dir, os.path.basename(path)[:-4], instr)
+            mp3_file = "{}/{}_{}.mp3".format(args.store_dir, os.path.basename(path)[:-4], instr)
+            sf.write(wav_file, res[instr].T, sr, subtype='FLOAT')
+            data, samplerate = sf.read(wav_file)
+            # Write the FLAC or MP3 file and delete the WAV file
+            sf.write(mp3_file, data, samplerate, format='MP3')
 
     time.sleep(1)
     print("Elapsed time: {:.2f} sec".format(time.time() - start_time))
@@ -81,7 +86,10 @@ def proc_folder(args):
     model = get_model_from_config(args.model_type, config)
     if args.start_check_point != '':
         print('Start from checkpoint: {}'.format(args.start_check_point))
-        state_dict = torch.load(args.start_check_point)
+        if torch.cuda.is_available():
+            state_dict = torch.load(args.start_check_point)
+        else:
+            state_dict = torch.load(args.start_check_point,map_location = torch.device('cpu'))
         if args.model_type == 'htdemucs':
             # Fix for htdemucs pround etrained models
             if 'state' in state_dict:
